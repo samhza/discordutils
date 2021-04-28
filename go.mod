@@ -1,4 +1,4 @@
-module discordtok
+module go.samhza.com/discordutils
 
 go 1.16
 
