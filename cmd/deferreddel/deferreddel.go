@@ -118,6 +118,7 @@ func deferredDelete(msg discord.Message, ctx context.Context) {
 	when := msg.Timestamp.Time().Add(dur)
 	vlog(msg.URL(), "will be deleted at", when)
 	timer := time.NewTimer(time.Until(when))
+	defer timer.Stop()
 	select {
 	case <-timer.C:
 		if err := ses.DeleteMessage(msg.ChannelID, msg.ID); err != nil {
