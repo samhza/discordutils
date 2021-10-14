@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,6 +14,7 @@ import (
 	"github.com/diamondburned/arikawa/v2/discord"
 	"github.com/diamondburned/arikawa/v2/gateway"
 	"github.com/diamondburned/arikawa/v2/session"
+	"go.samhza.com/discordutils/internal/token"
 )
 
 var (
@@ -51,18 +51,11 @@ func main() {
 			guildIDs[i] = discord.GuildID(n)
 		}
 	}
-	if *tok == "" {
-		cfg, err := os.UserConfigDir()
-		if err != nil {
-			log.Fatalln(err)
-		}
-		tokb, err := os.ReadFile(filepath.Join(cfg, "discord-token"))
-		if err != nil {
-			log.Fatalln(err)
-		}
-		*tok = strings.TrimSpace(string(tokb))
+	err := token.Get(tok)
+	if err != nil {
+		log.Fatalln(err)
 	}
-	ses, err := session.New(*tok)
+	ses, err = session.New(*tok)
 	if err != nil {
 		log.Fatalln(err)
 	}
