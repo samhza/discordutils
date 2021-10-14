@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -30,32 +30,39 @@ var (
 
 func vlog(v ...interface{}) {
 	if verbose {
-		fmt.Println(v...)
+		log.Println(v...)
 	}
 }
 
 func main() {
-	flag.BoolVar(&verbose, "v", false, "verbose")
-	gids := flag.String("gids", "", "guild IDs")
+	flag.BoolVar(&verbose, "v", false, "log deleted messages")
+	gids := flag.String("gids", "", "guild IDs, comma separated")
+	flag.DurationVar(&dur, "dur", 48*time.Hour, "delay for deleting messages")
+	tok := flag.String("tok", "", "token")
 	flag.Parse()
-	split := strings.Split(*gids, ",")
-	guildIDs = make([]discord.GuildID, len(split))
-	for i, s := range split {
-		n, err := strconv.ParseInt(s, 10, 64)
+	if *gids != "" {
+		split := strings.Split(*gids, ",")
+		guildIDs = make([]discord.GuildID, len(split))
+		for i, s := range split {
+			n, err := strconv.ParseInt(s, 10, 64)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			guildIDs[i] = discord.GuildID(n)
+		}
+	}
+	if *tok == "" {
+		cfg, err := os.UserConfigDir()
 		if err != nil {
 			log.Fatalln(err)
 		}
-		guildIDs[i] = discord.GuildID(n)
+		tokb, err := os.ReadFile(filepath.Join(cfg, "discord-token"))
+		if err != nil {
+			log.Fatalln(err)
+		}
+		*tok = strings.TrimSpace(string(tokb))
 	}
-	if len(flag.Args()) < 2 {
-		log.Fatalf("usage: %s <duration> <token>\n", os.Args[0])
-	}
-	var err error
-	dur, err = time.ParseDuration(flag.Arg(0))
-	if err != nil {
-		log.Fatalln(err)
-	}
-	ses, err = session.New(flag.Arg(1))
+	ses, err := session.New(*tok)
 	if err != nil {
 		log.Fatalln(err)
 	}
