@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/diamondburned/arikawa/v2/api"
 	"github.com/diamondburned/arikawa/v2/discord"
@@ -13,13 +15,24 @@ import (
 )
 
 func main() {
-	ch := flag.Uint64("ch", 0, "channel ID")
+	var ch discord.ChannelID
+	flag.Func("ch", "channel ID", func(str string) error {
+		n, err := strconv.ParseUint(str, 10, 64)
+		if err != nil {
+			return err
+		}
+		ch = discord.ChannelID(n)
+		if !ch.IsValid() {
+			return errors.New("channel is not valid")
+		}
+		return nil
+	})
 	n := flag.String("n", "stdout.txt", "file name")
 	tok := flag.String("tok", "", "token")
 	fname := flag.String("f", "-", "input file")
 	flag.Parse()
-	if !discord.ChannelID(*ch).IsValid() {
-		log.Fatalln("channel is not valid")
+	if ch == 0 {
+		log.Fatalln("channel is not specified")
 	}
 	var f *os.File
 	if *fname == "-" {
@@ -36,7 +49,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	c := api.NewClient(*tok)
-	m, err := c.SendMessageComplex(discord.ChannelID(*ch), api.SendMessageData{
+	m, err := c.SendMessageComplex(discord.ChannelID(ch), api.SendMessageData{
 		Files: []sendpart.File{{Name: *n, Reader: f}},
 	})
 	if err != nil {
