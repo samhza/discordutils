@@ -11,7 +11,7 @@ import (
 	"github.com/diamondburned/arikawa/v2/api"
 	"github.com/diamondburned/arikawa/v2/discord"
 	"github.com/diamondburned/arikawa/v2/utils/sendpart"
-	"go.samhza.com/discordutils/internal/token"
+	"samhza.com/discordutils/internal/token"
 )
 
 func main() {

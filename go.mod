@@ -1,4 +1,4 @@
-module go.samhza.com/discordutils
+module samhza.com/discordutils
 
 go 1.16
 

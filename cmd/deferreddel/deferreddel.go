@@ -14,7 +14,7 @@ import (
 	"github.com/diamondburned/arikawa/v2/discord"
 	"github.com/diamondburned/arikawa/v2/gateway"
 	"github.com/diamondburned/arikawa/v2/session"
-	"go.samhza.com/discordutils/internal/token"
+	"samhza.com/discordutils/internal/token"
 )
 
 var (
