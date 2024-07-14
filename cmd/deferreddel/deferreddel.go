@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"log"
-	"os"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -56,7 +55,9 @@ func main() {
 		log.Fatalln(err)
 	}
 	ses = session.New(*tok)
-	err = ses.Open(context.TODO())
+	ctx, cancelCtx := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancelCtx()
+	err = ses.Open(ctx)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -78,40 +79,43 @@ func main() {
 			}
 		})
 	defer cancel()
-	go run(evs)
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
+	run(ctx, evs)
 }
 
-func run(evs <-chan interface{}) {
+func run(ctx context.Context, evs <-chan interface{}) {
 	cancels := make(map[discord.MessageID]context.CancelFunc)
 Outer:
-	for ev := range evs {
-		switch ev := ev.(type) {
-		case *gateway.MessageCreateEvent:
-			var ctx context.Context
-			if ev.Author.ID != userID {
-				continue
-			}
-			if len(guildIDs) != 0 {
-				for _, gid := range guildIDs {
-					if ev.GuildID != gid {
-						continue Outer
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev := <-evs:
+			switch ev := ev.(type) {
+			case *gateway.MessageCreateEvent:
+				var ctx context.Context
+				if ev.Author.ID != userID {
+					continue
+				}
+				if len(guildIDs) != 0 {
+					for _, gid := range guildIDs {
+						if ev.GuildID != gid {
+							continue Outer
+						}
 					}
 				}
-			}
-			ctx, cancels[ev.ID] = context.WithCancel(context.Background())
-			go deferredDelete(ev.Message, ctx)
-		case *gateway.MessageDeleteEvent:
-			if cancel, ok := cancels[ev.ID]; ok {
-				cancel()
+				var mctx context.Context
+				mctx, cancels[ev.ID] = context.WithCancel(ctx)
+				go deferredDelete(mctx, ev.Message)
+			case *gateway.MessageDeleteEvent:
+				if cancel, ok := cancels[ev.ID]; ok {
+					cancel()
+				}
 			}
 		}
 	}
 }
 
-func deferredDelete(msg discord.Message, ctx context.Context) {
+func deferredDelete(ctx context.Context, msg discord.Message) {
 	when := msg.Timestamp.Time().Add(dur)
 	vlog(msg.URL(), "will be deleted at", when)
 	timer := time.NewTimer(time.Until(when))
