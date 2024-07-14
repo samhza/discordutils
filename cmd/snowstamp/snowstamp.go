@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/diamondburned/arikawa/v2/discord"
+	"github.com/diamondburned/arikawa/v3/discord"
 )
 
 func main() {

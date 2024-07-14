@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/diamondburned/arikawa/v2/discord"
-	"github.com/diamondburned/arikawa/v2/gateway"
-	"github.com/diamondburned/arikawa/v2/session"
+	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/gateway"
+	"github.com/diamondburned/arikawa/v3/session"
 	"samhza.com/discordutils/internal/token"
 )
 
@@ -55,15 +55,12 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	ses, err = session.New(*tok)
+	ses = session.New(*tok)
+	err = ses.Open(context.TODO())
 	if err != nil {
 		log.Fatalln(err)
 	}
-	err = ses.Open()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer ses.CloseGracefully()
+	defer ses.Close()
 	me, err := ses.Me()
 	if err != nil {
 		log.Fatalln(err)
@@ -121,7 +118,7 @@ func deferredDelete(msg discord.Message, ctx context.Context) {
 	defer timer.Stop()
 	select {
 	case <-timer.C:
-		if err := ses.DeleteMessage(msg.ChannelID, msg.ID); err != nil {
+		if err := ses.DeleteMessage(msg.ChannelID, msg.ID, ""); err != nil {
 			log.Println(err)
 		} else {
 			vlog(msg.URL(), "sucessfully deleted")
