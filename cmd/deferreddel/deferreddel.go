@@ -4,9 +4,8 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -24,7 +23,7 @@ var (
 )
 
 var (
-	guildIDs map[discord.GuildID]struct{}
+	guildIDs = make(map[discord.GuildID]struct{})
 )
 
 func vlog(v ...interface{}) {
@@ -34,22 +33,20 @@ func vlog(v ...interface{}) {
 }
 
 func main() {
-	flag.BoolVar(&verbose, "v", false, "log deleted messages")
-	gids := flag.String("gids", "", "guild IDs, comma separated")
+	flag.BoolVar(&verbose, "v", false, "log queued message deletions")
+	flag.Func("g", "guild ID to delete messages from (can be specified multiple times)", func(s string) error {
+		n, err := discord.ParseSnowflake(s)
+		guildIDs[discord.GuildID(n)] = struct{}{}
+		return err
+	})
 	flag.DurationVar(&dur, "dur", 48*time.Hour, "delay for deleting messages")
 	tok := flag.String("tok", "", "token")
 	flag.Parse()
 
-	if *gids != "" {
-		split := strings.Split(*gids, ",")
-		guildIDs = make(map[discord.GuildID]struct{}, len(split))
-		for _, s := range split {
-			n, err := strconv.ParseInt(s, 10, 64)
-			if err != nil {
-				log.Fatalln(err)
-			}
-			guildIDs[discord.GuildID(n)] = struct{}{}
-		}
+	if dur < 0 {
+		log.Println("specified duration must be positive")
+		flag.Usage()
+		os.Exit(2)
 	}
 
 	err := token.Get(tok)
