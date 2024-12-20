@@ -92,7 +92,6 @@ Outer:
 		case ev := <-evs:
 			switch ev := ev.(type) {
 			case *gateway.MessageCreateEvent:
-				var ctx context.Context
 				if ev.Author.ID != userID {
 					continue
 				}
