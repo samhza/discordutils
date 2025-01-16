@@ -16,6 +16,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/httputil"
 	"samhza.com/discordutils/internal/archive"
+	"samhza.com/discordutils/internal/token"
 )
 
 const (
@@ -25,18 +26,18 @@ const (
 )
 
 func main() {
-	token := flag.String("token", "", "Discord user token")
+	tok := flag.String("tok", "", "Discord user token")
 	chid := flag.Uint64("channel", 0, "Discord channel ID")
 	gid := flag.Uint64("guild", 0, "Discord guild ID")
-	archiveDir := flag.String("archive", "./archive", "Directory to log deleted messages in")
+	archiveDir := flag.String("archive", "", "directory to log deleted messages in")
 	flag.Parse()
 	if *chid == 0 && *gid == 0 {
 		flag.Usage()
 		log.Fatalln("at least one of -channel and -guild must be specified")
 	}
-	if *token == "" {
-		flag.Usage()
-		log.Fatalln("-token option must be specified")
+	err := token.Get(tok)
+	if err != nil {
+		log.Fatalln(err)
 	}
 	var output *archive.Output
 	if *archiveDir != "" {
@@ -49,7 +50,7 @@ func main() {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer cancel()
-	c := session.New(*token)
+	c := session.New(*tok)
 	self, err := c.Me()
 	if err != nil {
 		log.Fatalln("Error fetching self:", err)
