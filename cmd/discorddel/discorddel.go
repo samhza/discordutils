@@ -61,10 +61,11 @@ func main() {
 			pause <- struct{}{}
 		}
 	})
-	if err := c.Open(ctx); err != nil {
+	if err := c.Connect(ctx); err != nil {
 		log.Fatalln(err)
 	}
 	defer c.Close()
+	c = c.WithContext(ctx)
 	searchdata := api.SearchData{
 		SortBy:    "timestamp",
 		SortOrder: "asc",

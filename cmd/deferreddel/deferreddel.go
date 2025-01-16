@@ -60,11 +60,12 @@ func main() {
 	ctx, cancelCtx := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancelCtx()
 
-	err = ses.Open(ctx)
+	err = ses.Connect(ctx)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	defer ses.Close()
+	ses = ses.WithContext(ctx)
 
 	me, err := ses.Me()
 	if err != nil {
