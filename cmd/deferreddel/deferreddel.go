@@ -12,6 +12,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
+	"samhza.com/discordutils/internal/archive"
 	"samhza.com/discordutils/internal/token"
 )
 
@@ -41,6 +42,7 @@ func main() {
 	})
 	flag.DurationVar(&dur, "dur", 48*time.Hour, "delay for deleting messages")
 	tok := flag.String("tok", "", "token")
+	archiveDir := flag.String("archive", "", "directory to log deleted messages in")
 	flag.Parse()
 
 	if dur < 0 {
@@ -70,6 +72,15 @@ func main() {
 	}
 	userID = me.ID
 
+	var output *archive.Output
+	if *archiveDir != "" {
+		output, err = archive.NewOutput(*archiveDir)
+		if err != nil {
+			log.Fatalln("Error while opening archive directory:", err)
+		}
+		defer output.Close()
+	}
+
 	evs, cancel := ses.ChanFor(
 		func(ev interface{}) bool {
 			switch ev.(type) {
@@ -83,10 +94,10 @@ func main() {
 		})
 	defer cancel()
 
-	run(ctx, evs)
+	run(ctx, evs, output)
 }
 
-func run(ctx context.Context, evs <-chan interface{}) {
+func run(ctx context.Context, evs <-chan interface{}, output *archive.Output) {
 	cancels := make(map[discord.MessageID]context.CancelFunc)
 	for {
 		select {
@@ -105,7 +116,7 @@ func run(ctx context.Context, evs <-chan interface{}) {
 				}
 				var mctx context.Context
 				mctx, cancels[ev.ID] = context.WithCancel(ctx)
-				go deferredDelete(mctx, ev.Message)
+				go deferredDelete(mctx, ev.Message, output)
 			case *gateway.MessageDeleteEvent:
 				if cancel, ok := cancels[ev.ID]; ok {
 					cancel()
@@ -116,7 +127,7 @@ func run(ctx context.Context, evs <-chan interface{}) {
 	}
 }
 
-func deferredDelete(ctx context.Context, msg discord.Message) {
+func deferredDelete(ctx context.Context, msg discord.Message, output *archive.Output) {
 	when := msg.Timestamp.Time().Add(dur)
 	vlog(msg.URL(), "will be deleted at", when)
 	timer := time.NewTimer(time.Until(when))
@@ -124,6 +135,11 @@ func deferredDelete(ctx context.Context, msg discord.Message) {
 
 	select {
 	case <-timer.C:
+		if output != nil {
+			if err := output.LogMessage(msg); err != nil {
+				log.Printf("Error logging message %s: %s\n", msg.URL(), err)
+			}
+		}
 		if err := ses.DeleteMessage(msg.ChannelID, msg.ID, ""); err != nil {
 			log.Println(err)
 		} else {
