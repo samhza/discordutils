@@ -2,17 +2,12 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
-	"path"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -20,7 +15,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/session"
 	"github.com/diamondburned/arikawa/v3/utils/httputil"
-	"github.com/mattn/go-sqlite3"
+	"samhza.com/discordutils/internal/archive"
 )
 
 const (
@@ -33,7 +28,7 @@ func main() {
 	token := flag.String("token", "", "Discord user token")
 	chid := flag.Uint64("channel", 0, "Discord channel ID")
 	gid := flag.Uint64("guild", 0, "Discord guild ID")
-	archive := flag.String("archive", "./archive", "Directory to log deleted messages in")
+	archiveDir := flag.String("archive", "./archive", "Directory to log deleted messages in")
 	flag.Parse()
 	if *chid == 0 && *gid == 0 {
 		flag.Usage()
@@ -43,10 +38,10 @@ func main() {
 		flag.Usage()
 		log.Fatalln("-token option must be specified")
 	}
-	var output *output
-	if *archive != "" {
+	var output *archive.Output
+	if *archiveDir != "" {
 		var err error
-		output, err = newOutput(*archive)
+		output, err = archive.NewOutput(*archiveDir)
 		if err != nil {
 			log.Fatalln("Error while opening archive directory:", err)
 		}
@@ -128,7 +123,7 @@ Outer:
 				}
 				m.GuildID = discord.GuildID(*gid)
 				if output != nil {
-					err := output.logMessage(m)
+					err := output.LogMessage(m)
 					if err != nil {
 						log.Fatalf("Error logging message %s: %s\n", m.URL(), err)
 					}
@@ -146,91 +141,6 @@ Outer:
 			}
 		}
 	}
-}
-
-const schema = `
-CREATE TABLE IF NOT EXISTS Message (
-	id INTEGER NOT NULL PRIMARY KEY,
-	author INTEGER NOT NULL,
-	channel INTEGER NOT NULL,
-	guild INTEGER,
-	content TEXT NOT NULL,
-	json TEXT NOT NULL
-);
-`
-
-var stmtInsert *sql.Stmt
-
-func newOutput(dir string) (*output, error) {
-	o := new(output)
-	err := os.MkdirAll(dir, 0777)
-	if err != nil {
-		return nil, err
-	}
-	o.DB, err = sql.Open("sqlite3", path.Join(dir, "messages.db"))
-	if err != nil {
-		return nil, err
-	}
-	_, err = o.Exec(schema)
-	if err != nil {
-		return nil, err
-	}
-	stmtInsert, err = o.Prepare("INSERT INTO Message (id, author, channel, guild, content, json) VALUES(?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return nil, err
-	}
-	o.attdir = path.Join(dir, "attachments")
-	return o, nil
-}
-
-type output struct {
-	*sql.DB
-	attdir string
-}
-
-func (o *output) logMessage(m discord.Message) error {
-	var guild string
-	if m.GuildID.IsNull() {
-		guild = "dm"
-	} else {
-		guild = m.GuildID.String()
-	}
-	attd := path.Join(o.attdir, guild, m.ChannelID.String())
-	err := os.MkdirAll(attd, 0777)
-	if err != nil {
-		return err
-	}
-	for n, att := range m.Attachments {
-		attf := path.Join(attd, fmt.Sprintf("%d,%d %s",
-			m.ID,
-			n,
-			att.Filename,
-		))
-		f, err := os.Create(attf)
-		if err != nil {
-			return fmt.Errorf("creating attachment file: %w", err)
-		}
-		resp, err := http.Get(att.URL)
-		if err != nil {
-			f.Close()
-			return fmt.Errorf("requesting attachment contents: %w", err)
-		}
-		_, err = io.Copy(f, resp.Body)
-		f.Close()
-		resp.Body.Close()
-		if err != nil {
-			return fmt.Errorf("downloading attachment: %w", err)
-		}
-	}
-	content := m.Content
-	m.Content = ""
-	j, err := json.Marshal(m)
-	if _, err := stmtInsert.Exec(m.ID, m.Author.ID, m.ChannelID, m.GuildID, content, j); err != nil {
-		if e, ok := err.(sqlite3.Error); !ok || e.Code != sqlite3.ErrConstraint {
-			return err
-		}
-	}
-	return nil
 }
 
 func deleteMsg(c *api.Client, m discord.Message) error {
