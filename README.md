@@ -11,7 +11,8 @@ go install samhza.com/discordutils/cmd/deferreddel@latest # install a single too
 ```
 
 ## Authentication
-All tools will look for a Discord token in `~/.config/discord-token` if not provided via the `-tok` flag. To extract and save your token:
+All tools will look for a Discord token in `~/.config/discord-token` if not
+provided via the `-tok` flag. To extract and save your token:
 
 ```bash
 # Linux
@@ -20,8 +21,41 @@ discordtok > ~/.config/discord-token
 # macOS
 discordtok > ~/Library/Application\ Support/discord-token
 
-# Windows
-discordtok > %APPDATA%\discord-token
+# Windows (PowerShell)
+discordtok > $env:APPDATA\discord-token
+```
+
+## Archiving
+
+discorddel/deferreddel can optionally archive your messages that they
+delete. Messages get logged to an SQLite database and their attachments get downloaded.
+
+## discorddel
+
+Delete messages in a specific channel/guild. If a guild is specified without
+specifying a channel, then all your messages in that guild will be deleted. To
+delete messages in DM channels, only specify channel ID.
+
+```
+Usage:
+  -archive string
+    	directory to log deleted messages in
+  -channel uint
+    	Discord channel ID
+  -guild uint
+    	Discord guild ID
+  -tok string
+    	Discord user token
+```
+
+### Examples
+```bash
+# Delete all your messages in a guild, archiving them in ./archive
+discorddel -archive ./archive -guild <guild ID>
+# Delete all your messages in a specific guild channel, without archiving
+discorddel -guild <guild ID> -channel <guild channel ID>
+# Delete all your messages in a DM channel, without archiving
+discorddel -channel <dm channel ID>
 ```
 
 ## deferreddel
@@ -31,6 +65,8 @@ will self-destruct.
 
 ```
 Usage:
+  -archive string
+    	directory to log deleted messages in
   -dur duration
     	delay for deleting messages (default 48h0m0s)
   -g value
