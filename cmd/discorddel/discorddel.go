@@ -61,7 +61,7 @@ func main() {
 			pause <- struct{}{}
 		}
 	})
-	if err := c.Connect(ctx); err != nil {
+	if err := c.Open(ctx); err != nil {
 		log.Fatalln(err)
 	}
 	defer c.Close()
